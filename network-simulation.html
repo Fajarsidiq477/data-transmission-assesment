@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network Data Journey Simulator</title>
+<style>
+:root{
+  --bg:#FAFAF7; --surface:#FFFFFF; --ink:#1E2129; --ink-muted:#5B5F6B; --line:#DEDCD2;
+  --pc:#1D3557; --hub:#8A8778; --switch:#0F6E56; --bridge:#B45309; --router:#5B2A86;
+  --packet:#D8452F; --good:#2F7D4F; --bad:#9A9C97; --radius:12px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#14161B; --surface:#1D2027; --ink:#EDEEF0; --ink-muted:#A7ABB5; --line:#33363F;
+    --pc:#7FB1E8; --hub:#B7B4A4; --switch:#4FD1B0; --bridge:#F0A94E; --router:#B48EE0;
+    --packet:#FF7A63; --good:#5FC98A; --bad:#6B6E76;
+  }
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  line-height:1.55;
+}
+.wrap{max-width:1120px; margin:0 auto; padding:28px 20px 60px;}
+h1{font-size:22px; font-weight:600; margin:0 0 4px;}
+h2{font-size:18px; font-weight:600; margin:0;}
+p{margin:0;}
+.intro{color:var(--ink-muted); font-size:14px; max-width:640px; margin-bottom:22px;}
+.legend{display:flex; flex-wrap:wrap; gap:16px; align-items:center; font-size:13px; color:var(--ink-muted); margin-bottom:26px;}
+.legend .item{display:flex; align-items:center; gap:6px;}
+.swatch{width:12px; height:12px; border-radius:3px; display:inline-block;}
+
+.login-wrap{display:flex; justify-content:center; padding:40px 0;}
+.login-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:30px; max-width:400px; width:100%;}
+.login-card p{color:var(--ink-muted); font-size:13.5px; margin-top:8px;}
+.field{display:flex; flex-direction:column; gap:6px; margin-top:16px; font-size:13.5px;}
+.field input, .field select{
+  font-family:inherit; font-size:14px; padding:9px 12px; border:1px solid var(--line);
+  border-radius:8px; background:var(--bg); color:var(--ink);
+}
+.field input:focus-visible, .field select:focus-visible{outline:2px solid var(--router); outline-offset:1px;}
+
+.top-row{display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;}
+.student-badge{font-size:13px; color:var(--ink-muted);}
+
+.menu-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+@media (max-width:680px){.menu-grid{grid-template-columns:1fr;}}
+.card{
+  background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--accent,var(--pc));
+  border-radius:var(--radius); padding:18px 20px; display:flex; flex-direction:column; gap:10px;
+}
+.card h2{font-size:16px;}
+.card p{font-size:13.5px; color:var(--ink-muted);}
+.card-foot{display:flex; align-items:center; justify-content:space-between; margin-top:4px;}
+.badge-done{font-size:11.5px; color:var(--good); font-weight:600;}
+
+.submit-panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-top:20px;}
+.score-row{display:flex; justify-content:space-between; font-size:13.5px; padding:6px 0; border-bottom:1px solid var(--line);}
+.score-row-total{font-weight:600; border-bottom:none; padding-top:10px;}
+.submit-actions{display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap;}
+
+button{font-family:inherit; cursor:pointer;}
+.btn-primary{
+  background:var(--ink); color:var(--bg); border:none; border-radius:8px;
+  padding:9px 18px; font-size:14px; font-weight:500;
+}
+.btn-primary:hover:not(:disabled){opacity:0.88;}
+.btn-primary:disabled{opacity:0.4; cursor:not-allowed;}
+.btn-ghost{
+  background:none; border:1px solid var(--line); color:var(--ink); border-radius:8px;
+  padding:8px 14px; font-size:13.5px;
+}
+.btn-ghost:hover{border-color:var(--ink-muted);}
+button:focus-visible{outline:2px solid var(--router); outline-offset:2px;}
+
+.sim-header{display:flex; align-items:center; gap:14px; margin-bottom:6px; flex-wrap:wrap;}
+.sim-header h2{flex:1; min-width:180px;}
+.progress-wrap{font-size:12.5px; color:var(--ink-muted); min-width:130px;}
+.progress-track{background:var(--line); height:5px; border-radius:3px; margin-top:4px; overflow:hidden;}
+.progress-fill{background:var(--router); height:100%; border-radius:3px; transition:width .3s ease;}
+
+.sim-body{display:flex; gap:20px; flex-wrap:wrap; margin-top:14px;}
+.diagram-panel{flex:1.5; min-width:320px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:10px;}
+.diagram-panel svg{width:100%; height:auto; display:block;}
+.quiz-panel{flex:1; min-width:280px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; display:flex; flex-direction:column; gap:14px;}
+.step-text{font-size:15px;}
+.options{display:flex; flex-direction:column; gap:8px;}
+.option-btn{
+  text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:8px;
+  padding:11px 14px; font-size:14px; color:var(--ink);
+}
+.option-btn:hover:not(:disabled){border-color:var(--ink-muted);}
+.option-btn:disabled{cursor:default;}
+.option-btn.correct{border-color:var(--good); background:color-mix(in srgb, var(--good) 10%, var(--surface));}
+.option-btn.wrong{border-color:var(--packet); animation:shake .4s;}
+@keyframes shake{
+  10%,90%{transform:translateX(-2px)} 20%,80%{transform:translateX(3px)}
+  30%,50%,70%{transform:translateX(-5px)} 40%,60%{transform:translateX(5px)}
+}
+@media (prefers-reduced-motion: reduce){ .option-btn.wrong{animation:none} }
+.feedback{font-size:13.5px; padding:10px 13px; border-radius:8px; display:none;}
+.feedback-good{display:block; background:color-mix(in srgb, var(--good) 10%, var(--surface)); border:1px solid var(--good); color:var(--ink);}
+.feedback-bad{display:block; background:color-mix(in srgb, var(--packet) 8%, var(--surface)); border:1px solid var(--packet); color:var(--ink);}
+.continue-row{display:flex; justify-content:flex-end;}
+
+.complete-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:28px; text-align:center; max-width:480px; margin:40px auto;}
+.complete-card h2{margin-bottom:8px;}
+.complete-actions{display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap;}
+
+.dev-lbl{font-size:13px; font-weight:600;}
+.sub-lbl{font-size:10.5px; fill:var(--ink-muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Network Data Journey Simulator</h1>
+  <p class="intro">Choose a simulation to see how data travels through different network devices. Each simulation includes short questions at every step — answer correctly to continue the data's journey.</p>
+
+  <div class="legend">
+    <span class="item"><span class="swatch" style="background:var(--packet)"></span>Data packet in transit</span>
+    <span class="item"><span class="swatch" style="background:var(--good)"></span>Received by destination</span>
+    <span class="item"><span class="swatch" style="background:var(--bad)"></span>Ignored / discarded</span>
+  </div>
+
+  <div id="loginScreen" class="login-wrap">
+    <div class="login-card">
+      <h2>Before you begin</h2>
+      <p>Please enter your details. Your results will be recorded once you complete all five simulations.</p>
+      <div class="field"><label for="nameInput">Full name</label><input type="text" id="nameInput" placeholder="e.g. Jane Smith"></div>
+      <div class="field"><label for="classInput">Class</label>
+        <select id="classInput">
+          <option value="" disabled selected>Select your class</option>
+          <option value="9 HARVARD">9 HARVARD</option>
+          <option value="9 CAMBRIDGE">9 CAMBRIDGE</option>
+          <option value="9 MIT">9 MIT</option>
+          <option value="9 OXFORD">9 OXFORD</option>
+        </select>
+      </div>
+      <div class="feedback" id="loginError" style="margin-top:14px"></div>
+      <div style="margin-top:18px"><button class="btn-primary" id="loginBtn">Start</button></div>
+    </div>
+  </div>
+
+  <div id="menuWrap" style="display:none">
+    <div class="top-row">
+      <span class="student-badge" id="studentBadge"></span>
+      <button class="btn-ghost" id="switchStudentBtn" style="margin-left:auto">Switch student</button>
+    </div>
+    <div id="menuScreen" class="menu-grid"></div>
+    <div class="submit-panel">
+      <h2>Your results</h2>
+      <div id="scoreTable" style="margin-top:10px"></div>
+      <div class="submit-actions">
+        <button class="btn-primary" id="submitBtn">Submit results</button>
+        <span id="submitHint" style="font-size:12.5px; color:var(--ink-muted)"></span>
+      </div>
+      <div class="feedback" id="submitNote" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <div id="simScreen" style="display:none">
+    <div class="sim-header">
+      <button class="btn-ghost" id="backBtn">&larr; Menu</button>
+      <h2 id="simTitle"></h2>
+      <div class="progress-wrap">
+        <span id="progressText"></span>
+        <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="sim-body">
+      <div class="diagram-panel"><svg id="diagramSvg" viewBox="0 0 900 460"></svg></div>
+      <div class="quiz-panel">
+        <div class="step-text" id="stepText" aria-live="polite"></div>
+        <div class="options" id="optionsArea"></div>
+        <div class="feedback" id="feedbackArea" aria-live="polite"></div>
+        <div class="continue-row"><button class="btn-primary" id="continueBtn" style="display:none">Continue</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="completeScreen" style="display:none">
+    <div class="complete-card">
+      <h2>Simulation complete</h2>
+      <p id="completeText"></p>
+      <div class="complete-actions">
+        <button class="btn-ghost" id="retryBtn">Retry this simulation</button>
+        <button class="btn-primary" id="menuBtn">Back to menu</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<iframe name="hiddenSubmitFrame" style="display:none"></iframe>
+<form id="submitForm" method="POST" target="hiddenSubmitFrame" style="display:none">
+  <input type="hidden" name="name" id="fName">
+  <input type="hidden" name="className" id="fClass">
+  <input type="hidden" name="hub" id="fHub">
+  <input type="hidden" name="switchScore" id="fSwitch">
+  <input type="hidden" name="bridge" id="fBridge">
+  <input type="hidden" name="router" id="fRouter">
+  <input type="hidden" name="packetSwitching" id="fPacket">
+  <input type="hidden" name="average" id="fAverage">
+  <input type="hidden" name="clientTime" id="fTime">
+</form>
+
+<script>
+/* ================================================================
+   Paste your Google Apps Script Web App URL below (see the
+   accompanying apps-script-submit.gs file for the server-side code
+   and deployment steps). Leave blank to disable submission.
+   ================================================================ */
+var SUBMIT_URL = 'https://script.google.com/macros/s/AKfycby-G9LezefsQ9hDszDKY9cTX1O5VxHx3zyfE5w8AL3oWHbraSfhqtiu_fNLg5Y_bjKR/exec';
+
+var NS = 'http://www.w3.org/2000/svg';
+
+/* ---------- icon builders ---------- */
+function pcIcon(x,y,label){
+  return '<g><rect x="'+(x-24)+'" y="'+(y-20)+'" width="48" height="32" rx="3" style="fill:var(--surface);stroke:var(--pc);stroke-width:2"/>'+
+    '<rect x="'+(x-7)+'" y="'+(y+12)+'" width="14" height="6" style="fill:var(--pc)"/>'+
+    '<rect x="'+(x-16)+'" y="'+(y+18)+'" width="32" height="4" rx="2" style="fill:var(--pc)"/>'+
+    '<text x="'+x+'" y="'+(y+38)+'" text-anchor="middle" class="dev-lbl" style="fill:var(--pc)">'+label+'</text></g>';
+}
+function serverIcon(x,y,label){
+  return '<g><rect x="'+(x-14)+'" y="'+(y-28)+'" width="28" height="56" rx="3" style="fill:var(--surface);stroke:var(--pc);stroke-width:2"/>'+
+    '<line x1="'+(x-14)+'" y1="'+(y-12)+'" x2="'+(x+14)+'" y2="'+(y-12)+'" style="stroke:var(--pc);stroke-width:1.5"/>'+
+    '<line x1="'+(x-14)+'" y1="'+y+'" x2="'+(x+14)+'" y2="'+y+'" style="stroke:var(--pc);stroke-width:1.5"/>'+
+    '<line x1="'+(x-14)+'" y1="'+(y+12)+'" x2="'+(x+14)+'" y2="'+(y+12)+'" style="stroke:var(--pc);stroke-width:1.5"/>'+
+    '<text x="'+x+'" y="'+(y+46)+'" text-anchor="middle" class="dev-lbl" style="fill:var(--pc)">'+label+'</text></g>';
+}
+function printerIcon(x,y,label){
+  return '<g><rect x="'+(x-12)+'" y="'+(y-18)+'" width="24" height="10" style="fill:var(--surface);stroke:var(--pc);stroke-width:2"/>'+
+    '<rect x="'+(x-20)+'" y="'+(y-8)+'" width="40" height="24" rx="3" style="fill:var(--surface);stroke:var(--pc);stroke-width:2"/>'+
+    '<rect x="'+(x-10)+'" y="'+(y+16)+'" width="20" height="10" style="fill:var(--pc)"/>'+
+    '<text x="'+x+'" y="'+(y+40)+'" text-anchor="middle" class="dev-lbl" style="fill:var(--pc)">'+label+'</text></g>';
+}
+function netDeviceIcon(x,y,label,sub,colorVar){
+  var offs=[-22,-7,8,23], ports='';
+  for(var i=0;i<offs.length;i++){ ports+='<circle cx="'+(x+offs[i])+'" cy="'+(y+11)+'" r="3" style="fill:'+colorVar+'"/>'; }
+  return '<g><rect x="'+(x-37)+'" y="'+(y-19)+'" width="74" height="38" rx="6" style="fill:'+colorVar+';fill-opacity:0.12;stroke:'+colorVar+';stroke-width:2"/>'+
+    ports+
+    '<text x="'+x+'" y="'+(y-2)+'" text-anchor="middle" class="dev-lbl" style="fill:'+colorVar+'">'+label+'</text>'+
+    '<text x="'+x+'" y="'+(y+34)+'" text-anchor="middle" class="sub-lbl">'+sub+'</text></g>';
+}
+function connLine(x1,y1,x2,y2){
+  return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" style="stroke:var(--line);stroke-width:2.5"/>';
+}
+function busLine(x1,x2,y){
+  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" style="stroke:var(--line);stroke-width:4"/>'+
+    '<line x1="'+x1+'" y1="'+(y-10)+'" x2="'+x1+'" y2="'+(y+10)+'" style="stroke:var(--line);stroke-width:3"/>'+
+    '<line x1="'+x2+'" y1="'+(y-10)+'" x2="'+x2+'" y2="'+(y+10)+'" style="stroke:var(--line);stroke-width:3"/>';
+}
+function lanBox(x,y,w,h,label){
+  return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="16" style="fill:none;stroke:var(--router);stroke-width:2;stroke-dasharray:6 5"/>'+
+    '<text x="'+(x+16)+'" y="'+(y+24)+'" class="dev-lbl" style="fill:var(--router)">'+label+'</text>';
+}
+function routeCurve(x1,y1,cx,cy,x2,y2){
+  return '<path d="M'+x1+','+y1+' Q'+cx+','+cy+' '+x2+','+y2+'" style="fill:none;stroke:var(--line);stroke-width:1.5;stroke-dasharray:3 4"/>';
+}
+function packetAnatomyMarkup(){
+  return '<g id="packetAnatomy">'+
+    '<rect x="365" y="40" width="90" height="40" rx="4" style="fill:var(--packet);fill-opacity:0.12;stroke:var(--packet);stroke-width:2"/>'+
+    '<rect x="455" y="40" width="90" height="40" rx="4" style="fill:var(--pc);fill-opacity:0.10;stroke:var(--pc);stroke-width:2"/>'+
+    '<rect x="545" y="40" width="90" height="40" rx="4" style="fill:var(--packet);fill-opacity:0.12;stroke:var(--packet);stroke-width:2"/>'+
+    '<text x="410" y="55" text-anchor="middle" class="dev-lbl" style="fill:var(--packet)">HEADER</text>'+
+    '<text x="410" y="70" text-anchor="middle" class="sub-lbl">addresses + seq. no.</text>'+
+    '<text x="500" y="55" text-anchor="middle" class="dev-lbl" style="fill:var(--pc)">BODY</text>'+
+    '<text x="500" y="70" text-anchor="middle" class="sub-lbl">actual data</text>'+
+    '<text x="590" y="55" text-anchor="middle" class="dev-lbl" style="fill:var(--packet)">FOOTER</text>'+
+    '<text x="590" y="70" text-anchor="middle" class="sub-lbl">error check</text>'+
+    '</g>';
+}
+
+/* ---------- animation primitives ---------- */
+function clearTempPackets(svg){
+  var els = svg.querySelectorAll('.packet-temp');
+  for(var i=0;i<els.length;i++){ els[i].remove(); }
+}
+function createPacketDot(svg,x,y,fill,r){
+  var c = document.createElementNS(NS,'circle');
+  c.setAttribute('cx',x); c.setAttribute('cy',y); c.setAttribute('r', r||9);
+  c.setAttribute('fill', fill||'var(--packet)');
+  c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','2');
+  c.classList.add('packet-temp');
+  svg.appendChild(c);
+  return c;
+}
+function animateDot(dot, points, duration, onDone){
+  var total = points.length - 1;
+  if(total<=0){ if(onDone) onDone(); return; }
+  var segDur = duration/total, seg=0, segStart=null;
+  function frame(ts){
+    if(segStart===null) segStart=ts;
+    var t=(ts-segStart)/segDur; if(t>1) t=1;
+    var p1=points[seg], p2=points[seg+1];
+    dot.setAttribute('cx', p1[0]+(p2[0]-p1[0])*t);
+    dot.setAttribute('cy', p1[1]+(p2[1]-p1[1])*t);
+    if(t>=1){
+      seg++; segStart=ts;
+      if(seg>=total){ if(onDone) onDone(); return; }
+    }
+    requestAnimationFrame(frame);
+  }
+  dot.setAttribute('cx',points[0][0]); dot.setAttribute('cy',points[0][1]);
+  requestAnimationFrame(frame);
+}
+function animateGroup(el, points, duration, onDone){
+  var total = points.length - 1;
+  if(total<=0){ if(onDone) onDone(); return; }
+  var segDur = duration/total, seg=0, segStart=null;
+  function frame(ts){
+    if(segStart===null) segStart=ts;
+    var t=(ts-segStart)/segDur; if(t>1) t=1;
+    var p1=points[seg], p2=points[seg+1];
+    var x=p1[0]+(p2[0]-p1[0])*t, y=p1[1]+(p2[1]-p1[1])*t;
+    el.setAttribute('transform','translate('+x+','+y+')');
+    if(t>=1){
+      seg++; segStart=ts;
+      if(seg>=total){ if(onDone) onDone(); return; }
+    }
+    requestAnimationFrame(frame);
+  }
+  el.setAttribute('transform','translate('+points[0][0]+','+points[0][1]+')');
+  requestAnimationFrame(frame);
+}
+function ensureMainPacket(svg,start){
+  var dot = svg.querySelector('#mainPacket');
+  if(!dot){
+    dot = document.createElementNS(NS,'circle');
+    dot.setAttribute('id','mainPacket'); dot.setAttribute('r','9');
+    dot.setAttribute('fill','var(--packet)'); dot.setAttribute('stroke','#fff'); dot.setAttribute('stroke-width','2');
+    dot.style.opacity='0';
+    dot.setAttribute('cx',start[0]); dot.setAttribute('cy',start[1]);
+    svg.appendChild(dot);
+  }
+  return dot;
+}
+function movePacketTo(svg, path, duration, onDone){
+  var dot = ensureMainPacket(svg, path[0]);
+  dot.style.opacity='1';
+  animateDot(dot, path, duration||900, onDone);
+}
+function broadcastAndContinue(svg, mainPath, otherPaths, duration){
+  movePacketTo(svg, mainPath, duration);
+  otherPaths.forEach(function(path){
+    var d = createPacketDot(svg, path[0][0], path[0][1], 'var(--packet)', 8);
+    animateDot(d, path, duration, function(){
+      d.setAttribute('fill','var(--bad)');
+      d.style.transition='opacity .6s';
+      d.style.opacity='0.25';
+    });
+  });
+}
+function pulseAt(svg, point, colorVar){
+  var c = document.createElementNS(NS,'circle');
+  c.setAttribute('cx',point[0]); c.setAttribute('cy',point[1]); c.setAttribute('r','10');
+  c.setAttribute('fill','none'); c.setAttribute('stroke',colorVar||'var(--good)'); c.setAttribute('stroke-width','3');
+  c.classList.add('packet-temp');
+  c.style.opacity='1'; c.style.transition='r 700ms ease-out, opacity 700ms ease-out';
+  svg.appendChild(c);
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ c.setAttribute('r','34'); c.style.opacity='0'; }); });
+}
+function markGood(svg){
+  var dot = svg.querySelector('#mainPacket');
+  if(dot) dot.setAttribute('fill','var(--good)');
+}
+function splitPulse(svg, point){
+  var offsets=[[-16,-10],[16,-10],[0,16]];
+  offsets.forEach(function(o){
+    var d=createPacketDot(svg, point[0], point[1], 'var(--packet)', 6);
+    animateDot(d, [point,[point[0]+o[0],point[1]+o[1]]], 400, function(){
+      setTimeout(function(){
+        d.style.transition='opacity .4s'; d.style.opacity='0';
+        setTimeout(function(){ d.remove(); },400);
+      },300);
+    });
+  });
+}
+function crossInternet(svg, p, duration){
+  movePacketTo(svg, p.pathStraight, duration);
+  [p.pathUp, p.pathDown].forEach(function(path){
+    var d=createPacketDot(svg, path[0][0], path[0][1], 'var(--packet)', 7);
+    animateDot(d, path, duration, function(){
+      d.style.transition='opacity .5s'; d.style.opacity='0';
+      setTimeout(function(){ d.remove(); },500);
+    });
+  });
+}
+function ensureLabeledPacket(svg, id, x, y, label){
+  var g = svg.querySelector('#'+id);
+  if(!g){
+    g = document.createElementNS(NS,'g');
+    g.setAttribute('id',id);
+    g.setAttribute('transform','translate('+x+','+y+')');
+    var c = document.createElementNS(NS,'circle');
+    c.setAttribute('r','11'); c.setAttribute('fill','var(--packet)');
+    c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','2');
+    var t = document.createElementNS(NS,'text');
+    t.setAttribute('text-anchor','middle'); t.setAttribute('y','1');
+    t.setAttribute('style','fill:#fff;font-size:11px;font-weight:700');
+    t.textContent = label;
+    g.appendChild(c); g.appendChild(t);
+    svg.appendChild(g);
+  }
+  return g;
+}
+
+/* ---------- simulation 1 : HUB ---------- */
+var starPoints = { pcA:[120,230], pcB:[450,80], pcC:[450,380], center:[450,230], pcD:[780,230] };
+function starStatic(centerLabel, centerSub, centerColor){
+  var p = starPoints;
+  return connLine(p.pcA[0],p.pcA[1],p.center[0],p.center[1]) +
+    connLine(p.center[0],p.center[1],p.pcB[0],p.pcB[1]) +
+    connLine(p.center[0],p.center[1],p.pcC[0],p.pcC[1]) +
+    connLine(p.center[0],p.center[1],p.pcD[0],p.pcD[1]) +
+    pcIcon(p.pcA[0],p.pcA[1],'PC A') + pcIcon(p.pcB[0],p.pcB[1],'PC B') +
+    pcIcon(p.pcC[0],p.pcC[1],'PC C') + pcIcon(p.pcD[0],p.pcD[1],'PC D') +
+    netDeviceIcon(p.center[0],p.center[1],centerLabel,centerSub,centerColor);
+}
+
+var sim1 = {
+  id:1, title:'Hub in a single LAN',
+  desc:'See what happens when data is sent through a Hub that broadcasts to every device.',
+  accent:'var(--hub)', viewBox:'0 0 900 460', points:starPoints,
+  staticMarkup: starStatic('HUB','broadcasts to all','var(--hub)'),
+  steps:[
+    {type:'narration', text:"PC A wants to send data to PC D. All devices are on the same LAN, connected through a HUB."},
+    {type:'question', text:'Where will the data from PC A go first?',
+      options:['Directly to PC D','To the Hub first','To PC B first'], correctIndex:1,
+      explanation:"In a star topology, every device's cable connects to one central point. Data must pass through the central device (the Hub) first — there is no direct path between PCs.",
+      animate:function(svg,p){ movePacketTo(svg,[p.pcA,p.center],900); }},
+    {type:'question', text:'A Hub cannot read the destination address. What does the Hub do after receiving data from PC A?',
+      options:['Send it only to PC D','Broadcast the data to EVERY connected device','Store the data to send later'], correctIndex:1,
+      explanation:'A Hub operates at the physical layer and has no address table at all. It simply repeats the electrical signal to every connected port, without knowing the actual destination.',
+      animate:function(svg,p){ broadcastAndContinue(svg,[p.center,p.pcD],[[p.center,p.pcB],[p.center,p.pcC]],900); }},
+    {type:'question', text:'PC B and PC C also receive the signal. What do they do?',
+      options:["Process the data since they're on the same network",'Compare the destination MAC Address, then ignore it because it does not match','Forward the data to PC D'], correctIndex:1,
+      explanation:"Every NIC checks the destination MAC Address on incoming data. Since PC B's and PC C's MAC Addresses don't match, both simply discard the data.",
+      animate:function(svg,p){ markGood(svg); pulseAt(svg,p.pcD,'var(--good)'); }},
+    {type:'narration', text:'PC D accepts the data because its MAC Address matches the destination. Notice that even though only PC D needed this data, EVERY device received the signal — this is why a Hub is inefficient and prone to data collisions.'}
+  ]
+};
+
+/* ---------- simulation 2 : SWITCH ---------- */
+var sim2 = {
+  id:2, title:'Switch in a single LAN',
+  desc:'Compare this with a Switch, which reads MAC addresses and sends data to a specific target.',
+  accent:'var(--switch)', viewBox:'0 0 900 460', points:starPoints,
+  staticMarkup: starStatic('SWITCH','reads MAC address','var(--switch)'),
+  steps:[
+    {type:'narration', text:"The central device is now a SWITCH. Let's send data from PC A to PC D again, and notice what's different."},
+    {type:'question', text:'Just like before — where does the data go first?',
+      options:['To the Switch first','Directly to PC D','Broadcast to all PCs'], correctIndex:0,
+      explanation:'The physical topology is unchanged (still a star), so the cabling stays the same — all data still passes through the central device first.',
+      animate:function(svg,p){ movePacketTo(svg,[p.pcA,p.center],900); }},
+    {type:'question', text:"The Switch already has PC D's port recorded in its MAC address table. What does the Switch do?",
+      options:['Forward the data only to the port connected to PC D','Broadcast to every port like a Hub','Send it to PC B and PC C first'], correctIndex:0,
+      explanation:'Unlike a Hub, a Switch reads the destination MAC Address and matches it against its learned MAC table, then sends the data only to the correct port.',
+      animate:function(svg,p){ markGood(svg); movePacketTo(svg,[p.center,p.pcD],900); pulseAt(svg,p.pcD,'var(--good)'); }},
+    {type:'question', text:"What if the Switch has NEVER recorded PC D's port before (a brand-new destination)?",
+      options:['The Switch floods it out every port temporarily while it learns the address','The data is simply lost','The Switch refuses to send the data'], correctIndex:0,
+      explanation:"When the destination is unknown, a Switch performs 'flooding' — sending to every port the first time. Once PC D replies, the Switch records that port, making future deliveries far more efficient."},
+    {type:'narration', text:'Because a Switch only sends data to its actual destination, the network becomes far more efficient and the risk of data collisions drops sharply compared to a Hub.'}
+  ]
+};
+
+/* ---------- simulation 3 : BRIDGE ---------- */
+var bp = {
+  pcA:[70,140], pcE:[40,250], pcF:[70,370], switch:[220,250],
+  bridge:[500,250], busStart:[580,250],
+  pcB:[620,380], pcG:[720,380], printer:[820,380], server:[920,380],
+  tapB:[620,250], tapG:[720,250], tapP:[820,250], tapS:[920,250]
+};
+var sim3Static =
+  connLine(bp.pcA[0],bp.pcA[1],bp.switch[0],bp.switch[1]) +
+  connLine(bp.pcE[0],bp.pcE[1],bp.switch[0],bp.switch[1]) +
+  connLine(bp.pcF[0],bp.pcF[1],bp.switch[0],bp.switch[1]) +
+  connLine(bp.switch[0],bp.switch[1],bp.bridge[0],bp.bridge[1]) +
+  connLine(bp.bridge[0],bp.bridge[1],bp.busStart[0],bp.busStart[1]) +
+  busLine(bp.busStart[0],960,250) +
+  connLine(bp.tapB[0],bp.tapB[1],bp.pcB[0],bp.pcB[1]) +
+  connLine(bp.tapG[0],bp.tapG[1],bp.pcG[0],bp.pcG[1]) +
+  connLine(bp.tapP[0],bp.tapP[1],bp.printer[0],bp.printer[1]) +
+  connLine(bp.tapS[0],bp.tapS[1],bp.server[0],bp.server[1]) +
+  pcIcon(bp.pcA[0],bp.pcA[1],'PC A') + pcIcon(bp.pcE[0],bp.pcE[1],'PC E') + pcIcon(bp.pcF[0],bp.pcF[1],'PC F') +
+  netDeviceIcon(bp.switch[0],bp.switch[1],'SWITCH','star segment','var(--switch)') +
+  netDeviceIcon(bp.bridge[0],bp.bridge[1],'BRIDGE','joins 2 segments','var(--bridge)') +
+  pcIcon(bp.pcB[0],bp.pcB[1],'PC B') + pcIcon(bp.pcG[0],bp.pcG[1],'PC G') +
+  printerIcon(bp.printer[0],bp.printer[1],'Printer') + serverIcon(bp.server[0],bp.server[1],'Server');
+
+var sim3 = {
+  id:3, title:'Bridge between two segments',
+  desc:'Send data across two different topologies (star and bus) joined together by a Bridge.',
+  accent:'var(--bridge)', viewBox:'0 0 1000 480', points:bp,
+  staticMarkup: sim3Static,
+  steps:[
+    {type:'narration', text:'PC A sits on a star segment (with a Switch). PC B sits on a bus segment. The two segments are connected by a BRIDGE. PC A wants to send data to PC B.'},
+    {type:'question', text:'Where does the data from PC A go first?',
+      options:['To the Switch on its own segment','Directly to the Bridge','Directly to PC B'], correctIndex:0,
+      explanation:'PC A is on the star segment, so as usual, data must pass through the Switch before it can leave that segment.',
+      animate:function(svg,p){ movePacketTo(svg,[p.pcA,p.switch],900); }},
+    {type:'question', text:"The Switch checks its MAC table. PC B isn't directly connected to this Switch. What does the Switch do?",
+      options:['Drop the data because the destination was not found','Forward the data out the port leading to the Bridge','Broadcast it to every PC in its own segment'], correctIndex:1,
+      explanation:"The Switch forwards the data out its uplink port (toward the Bridge), since that's the only way out toward a device it doesn't recognise locally.",
+      animate:function(svg,p){ movePacketTo(svg,[p.switch,p.bridge],900); }},
+    {type:'question', text:"The Bridge receives the data. What is the Bridge's main job here?",
+      options:['Check whether the destination is on a different segment, then forward it if so','Simply amplify the electrical signal like a repeater','Convert the data into a new IP packet'], correctIndex:0,
+      explanation:'A Bridge keeps a table of which segment each device belongs to. Since PC B is on the bus segment (different from the source), the Bridge forwards the data onto that segment.',
+      animate:function(svg,p){ movePacketTo(svg,[p.bridge,p.busStart],900); }},
+    {type:'question', text:'What if PC B were actually on the SAME segment as PC A? What would the Bridge do?',
+      options:['Still forward the data to the other segment as well','NOT forward the data to the other segment (filter it out)','Send the data twice'], correctIndex:1,
+      explanation:'One key job of a Bridge is traffic filtering: if the source and destination are on the same segment, the Bridge will not forward the data to the other segment, reducing unnecessary network load.'},
+    {type:'question', text:'Once the data reaches the bus segment (a shared cable), who receives the electrical signal?',
+      options:['Only PC B','Every device connected to that bus cable','Only the Bridge'], correctIndex:1,
+      explanation:'A bus topology uses a shared medium. Every device wired to that cable receives the electrical signal — exactly like a Hub.',
+      animate:function(svg,p){
+        broadcastAndContinue(svg,
+          [p.busStart,p.tapB,p.pcB],
+          [[p.busStart,p.tapG,p.pcG],[p.busStart,p.tapP,p.printer],[p.busStart,p.tapS,p.server]],
+          900);
+      }},
+    {type:'question', text:'Only one device actually processes this data. Which one, and why?',
+      options:["PC B, because its MAC Address matches the destination",'The printer, because it always receives data first','The server, because it stores all network data'], correctIndex:0,
+      explanation:'Every NIC on the bus compares the destination MAC Address to its own. Only PC B matches, so only PC B processes the data — the other devices ignore it.',
+      animate:function(svg,p){ markGood(svg); pulseAt(svg,p.pcB,'var(--good)'); }},
+    {type:'narration', text:'Delivery complete. Notice the difference in roles: a Switch works WITHIN one segment (between PCs), while a Bridge works BETWEEN two different segments.'}
+  ]
+};
+
+/* ---------- simulation 4 : ROUTER ---------- */
+var rp = {
+  pcA:[150,210], routerA:[260,310], routerB:[740,310], pcB:[850,210],
+  pathStraight:[[260,310],[740,310]],
+  pathUp:[[260,310],[500,255],[740,310]],
+  pathDown:[[260,310],[500,365],[740,310]]
+};
+var sim4Static =
+  lanBox(40,110,280,270,'LAN A - Home') +
+  lanBox(680,110,280,270,'LAN B - School') +
+  connLine(rp.pcA[0],rp.pcA[1],rp.routerA[0],rp.routerA[1]) +
+  connLine(rp.routerB[0],rp.routerB[1],rp.pcB[0],rp.pcB[1]) +
+  connLine(rp.routerA[0],rp.routerA[1],rp.routerB[0],rp.routerB[1]) +
+  routeCurve(260,310,500,255,740,310) +
+  routeCurve(260,310,500,365,740,310) +
+  '<text x="500" y="292" text-anchor="middle" class="sub-lbl">Internet</text>' +
+  pcIcon(rp.pcA[0],rp.pcA[1],'PC A') + pcIcon(rp.pcB[0],rp.pcB[1],'PC B') +
+  netDeviceIcon(rp.routerA[0],rp.routerA[1],'ROUTER A','home gateway','var(--router)') +
+  netDeviceIcon(rp.routerB[0],rp.routerB[1],'ROUTER B','school gateway','var(--router)');
+
+var sim4 = {
+  id:4, title:'Router between two LANs',
+  desc:'Follow data as it travels from one network to another through a Router and the internet.',
+  accent:'var(--router)', viewBox:'0 0 1000 460', points:rp,
+  staticMarkup: sim4Static,
+  steps:[
+    {type:'narration', text:'PC A (at home) wants to send data to PC B (at school) — a different network. This time, the addressing involves not just MAC Addresses, but also IP Addresses.'},
+    {type:'question', text:'How does PC A know that PC B is on a different network?',
+      options:["By comparing the destination IP Address with its own network's IP range",'By asking the Hub',"By checking the cable's colour"], correctIndex:0,
+      explanation:'Every device can determine whether a destination IP Address is on the same subnet or a different one. If it is different, the data cannot be delivered directly and must pass through a Router.',
+      animate:function(svg,p){ pulseAt(svg,p.pcA,'var(--router)'); }},
+    {type:'question', text:'Since PC B is on another network, where does PC A send its data first?',
+      options:['Directly to Router B at school','To Router A (its own gateway)','Broadcast to the entire internet'], correctIndex:1,
+      explanation:"Every device has a 'default gateway' — the Router on its own local network. Any data heading outside the local network is sent through this gateway first.",
+      animate:function(svg,p){ movePacketTo(svg,[p.pcA,p.routerA],900); }},
+    {type:'question', text:'Before large data is sent over the internet, what typically happens to it?',
+      options:['It is sent whole, as one large file','It is split into several smaller Data Packets','It is stored at the Router until fully downloaded'], correctIndex:1,
+      explanation:'This is called Packet Switching — data is broken into smaller packets (each with a Header containing addressing information and a Body containing part of the actual data), which can travel via different paths and be reassembled at the destination.',
+      animate:function(svg,p){ splitPulse(svg,p.routerA); }},
+    {type:'question', text:'What does Router A do with these packets?',
+      options:['Check the destination IP Address and forward them along the best path toward the destination network','Broadcast them to every network it knows','Store the packets permanently'], correctIndex:0,
+      explanation:'A Router uses a routing table to determine the best path toward the destination network based on IP Address, then forwards each packet — which may travel via different routes — toward the next Router.',
+      animate:function(svg,p){ crossInternet(svg,p,1400); }},
+    {type:'question', text:'When the packets reach Router B (the school gateway), what happens?',
+      options:['Router B forwards each packet to the correct device using its local MAC Address','Router B sends the packets back to the sender','Router B deletes the packets because they came from outside'], correctIndex:0,
+      explanation:'Once inside the destination network, Router B uses MAC Addresses (not just IP anymore) to deliver each packet to the correct device within the school LAN.',
+      animate:function(svg,p){ movePacketTo(svg,[p.routerB,p.pcB],900); setTimeout(function(){ markGood(svg); pulseAt(svg,p.pcB,'var(--good)'); },950); }},
+    {type:'narration', text:'At PC B, all the packets are reassembled into the complete message — like putting a puzzle back together. This is how a Router connects different networks, even across countries.'}
+  ]
+};
+
+/* ---------- simulation 5 : PACKET SWITCHING ---------- */
+var pp = {
+  pcA:[100,220], pcB:[900,220],
+  r1:[330,130], r2:[330,310], r3:[670,130], r4:[670,310],
+  slot1:[800,310], slot2:[850,310], slot3:[900,310]
+};
+var sim5Static =
+  connLine(pp.pcA[0],pp.pcA[1],pp.r1[0],pp.r1[1]) +
+  connLine(pp.pcA[0],pp.pcA[1],pp.r2[0],pp.r2[1]) +
+  connLine(pp.r1[0],pp.r1[1],pp.r3[0],pp.r3[1]) +
+  connLine(pp.r1[0],pp.r1[1],pp.r4[0],pp.r4[1]) +
+  connLine(pp.r2[0],pp.r2[1],pp.r4[0],pp.r4[1]) +
+  connLine(pp.r3[0],pp.r3[1],pp.pcB[0],pp.pcB[1]) +
+  connLine(pp.r4[0],pp.r4[1],pp.pcB[0],pp.pcB[1]) +
+  pcIcon(pp.pcA[0],pp.pcA[1],'PC A') + pcIcon(pp.pcB[0],pp.pcB[1],'PC B') +
+  netDeviceIcon(pp.r1[0],pp.r1[1],'R1','','var(--router)') +
+  netDeviceIcon(pp.r2[0],pp.r2[1],'R2','','var(--router)') +
+  netDeviceIcon(pp.r3[0],pp.r3[1],'R3','','var(--router)') +
+  netDeviceIcon(pp.r4[0],pp.r4[1],'R4','','var(--router)') +
+  packetAnatomyMarkup();
+
+var sim5 = {
+  id:5, title:'Packet switching across the internet',
+  desc:"Discover what's inside a data packet — header, body and footer — and how packets travel independently before being reassembled.",
+  accent:'var(--packet)', viewBox:'0 0 1000 400', points:pp,
+  staticMarkup: sim5Static,
+  steps:[
+    {type:'narration', text:'PC A wants to send a large message to PC B across the internet. Before it can be sent, the message must be broken down into pieces. Let\u2019s look at what is inside each piece.'},
+    {type:'question', text:'What is a smaller piece of a larger message called?',
+      options:['A Data Packet','A Data Frame','A Data Byte'], correctIndex:0,
+      explanation:'A large message is broken into smaller units called Data Packets before being sent across a network.'},
+    {type:'question', text:'What information does the HEADER of a packet contain?',
+      options:['The actual message content','Source and destination addresses, plus a sequence number','A random security code'], correctIndex:1,
+      explanation:'The header carries addressing information — including where the packet came from, where it is going, and its sequence number, which records its position in the original message.'},
+    {type:'question', text:'What does the BODY (payload) of a packet contain?',
+      options:['A small portion of the actual data being sent','Routing information','An empty placeholder'], correctIndex:0,
+      explanation:'The body, also called the payload, holds a fragment of the actual data being transmitted.'},
+    {type:'question', text:'What is the FOOTER (trailer) typically used for?',
+      options:["Storing the sender's password",'Checking for errors that may have occurred during transmission','Displaying the file size'], correctIndex:1,
+      explanation:'The footer usually contains error-checking information, such as a checksum, allowing the receiver to detect if a packet was corrupted in transit.'},
+    {type:'narration', text:'The message is now split into three packets, each carrying its own sequence number in its header.',
+      animate:function(svg,p){
+        var an = svg.querySelector('#packetAnatomy'); if(an) an.style.display='none';
+        ensureLabeledPacket(svg,'pkt1', p.pcA[0]-16, p.pcA[1]-18, '1');
+        ensureLabeledPacket(svg,'pkt2', p.pcA[0]+16, p.pcA[1]-18, '2');
+        ensureLabeledPacket(svg,'pkt3', p.pcA[0], p.pcA[1]+20, '3');
+      }},
+    {type:'question', text:'Must all three packets travel through the exact same route to reach PC B?',
+      options:['Yes, they must all use the same path','No, each packet can take a different path through different routers'], correctIndex:1,
+      explanation:'This is the core idea of Packet Switching: each packet is routed independently and may take a different path through the network, depending on traffic and availability.',
+      animate:function(svg,p){
+        var g1=ensureLabeledPacket(svg,'pkt1',p.pcA[0]-16,p.pcA[1]-18,'1');
+        var g2=ensureLabeledPacket(svg,'pkt2',p.pcA[0]+16,p.pcA[1]-18,'2');
+        var g3=ensureLabeledPacket(svg,'pkt3',p.pcA[0],p.pcA[1]+20,'3');
+        animateGroup(g1, [p.pcA,p.r1,p.r3,p.slot1], 1600);
+        animateGroup(g2, [p.pcA,p.r2,p.r4,p.slot2], 1100);
+        animateGroup(g3, [p.pcA,p.r1,p.r4,p.slot3], 1900);
+      }},
+    {type:'question', text:'Because packets can take different paths, in what order might they arrive at PC B?',
+      options:['Always in perfect order: 1, 2, 3','Possibly out of order — for example, 2, 1, 3'], correctIndex:1,
+      explanation:'Since each path may have different length, congestion, or delay, packets frequently arrive in a different order than they were sent.'},
+    {type:'question', text:'How does PC B correctly reassemble the message despite the scrambled arrival order?',
+      options:['By guessing the correct order','By using the sequence number stored in each packet header','By asking PC A to resend everything'], correctIndex:1,
+      explanation:"Every packet's header carries a sequence number. PC B uses these numbers to reorder the packets correctly, no matter what order they physically arrived in.",
+      animate:function(svg,p){
+        ['pkt1','pkt2','pkt3'].forEach(function(id){
+          var g=svg.querySelector('#'+id);
+          if(g){ var c=g.querySelector('circle'); if(c) c.setAttribute('fill','var(--good)'); }
+        });
+        pulseAt(svg,p.pcB,'var(--good)');
+      }},
+    {type:'narration', text:'This process — splitting a message into packets, routing each one independently, and reassembling them using sequence numbers — is called Packet Switching. It is the fundamental method the internet uses to move almost all data.'}
+  ]
+};
+
+var SIM_DATA = [sim1, sim2, sim3, sim4, sim5];
+
+/* ---------- engine ---------- */
+var state = { studentName:'', studentClass:'', simIndex:null, stepIndex:0, locked:false, correctCount:0, completed:{}, scores:{} };
+var loginScreen = document.getElementById('loginScreen');
+var menuWrap = document.getElementById('menuWrap');
+var menuScreen = document.getElementById('menuScreen');
+var simScreen = document.getElementById('simScreen');
+var completeScreen = document.getElementById('completeScreen');
+var simTitleEl = document.getElementById('simTitle');
+var progressText = document.getElementById('progressText');
+var progressFill = document.getElementById('progressFill');
+var svgEl = document.getElementById('diagramSvg');
+var stepTextEl = document.getElementById('stepText');
+var optionsEl = document.getElementById('optionsArea');
+var feedbackEl = document.getElementById('feedbackArea');
+var continueBtn = document.getElementById('continueBtn');
+var completeText = document.getElementById('completeText');
+
+function allSimsCompleted(){
+  return SIM_DATA.every(function(s){ return state.scores.hasOwnProperty(s.id); });
+}
+function computeAverage(){
+  var vals = SIM_DATA.map(function(s){ return state.scores[s.id]; });
+  var sum = vals.reduce(function(a,b){ return a+b; },0);
+  return Math.round(sum/vals.length);
+}
+function renderScoreTable(){
+  var rows = SIM_DATA.map(function(s){
+    var has = state.scores.hasOwnProperty(s.id);
+    var sc = has ? state.scores[s.id]+'/100' : 'not attempted';
+    return '<div class="score-row"><span>'+s.title+'</span><span>'+sc+'</span></div>';
+  }).join('');
+  var avgRow = allSimsCompleted() ? '<div class="score-row score-row-total"><span>Average</span><span>'+computeAverage()+'/100</span></div>' : '';
+  document.getElementById('scoreTable').innerHTML = rows + avgRow;
+  var btn = document.getElementById('submitBtn');
+  var hint = document.getElementById('submitHint');
+  btn.disabled = !allSimsCompleted();
+  hint.textContent = allSimsCompleted() ? '' : 'Complete all five simulations to unlock submission.';
+}
+
+function renderMenu(){
+  document.getElementById('studentBadge').textContent = state.studentName + ' \u2014 ' + state.studentClass;
+  menuScreen.innerHTML='';
+  SIM_DATA.forEach(function(sim, idx){
+    var card = document.createElement('div');
+    card.className='card';
+    card.style.setProperty('--accent', sim.accent);
+    var done = state.completed[sim.id];
+    var doneBadge = done ? '<span class="badge-done">Score: '+state.scores[sim.id]+'/100</span>' : '<span></span>';
+    card.innerHTML = '<h2>'+sim.title+'</h2><p>'+sim.desc+'</p><div class="card-foot">'+doneBadge+'<button class="btn-primary" data-idx="'+idx+'">'+(done?'Retry':'Start')+'</button></div>';
+    menuScreen.appendChild(card);
+  });
+  menuScreen.querySelectorAll('button[data-idx]').forEach(function(btn){
+    btn.onclick = function(){ startSim(parseInt(btn.getAttribute('data-idx'),10)); };
+  });
+  renderScoreTable();
+}
+
+function startSim(idx){
+  state.simIndex=idx; state.stepIndex=0; state.locked=false; state.correctCount=0;
+  var sim = SIM_DATA[idx];
+  simTitleEl.textContent = sim.title;
+  svgEl.setAttribute('viewBox', sim.viewBox);
+  svgEl.innerHTML = sim.staticMarkup;
+  menuWrap.style.display='none'; completeScreen.style.display='none'; simScreen.style.display='block';
+  renderStep();
+}
+
+function renderStep(){
+  var sim = SIM_DATA[state.simIndex];
+  var step = sim.steps[state.stepIndex];
+  progressText.textContent = 'Step '+(state.stepIndex+1)+' of '+sim.steps.length;
+  progressFill.style.width = Math.round(((state.stepIndex)/sim.steps.length)*100)+'%';
+  stepTextEl.textContent = step.text;
+  optionsEl.innerHTML='';
+  feedbackEl.className='feedback'; feedbackEl.textContent='';
+  continueBtn.style.display='none';
+  clearTempPackets(svgEl);
+
+  if(step.type==='narration'){
+    if(step.animate) step.animate(svgEl, sim.points);
+    continueBtn.style.display='inline-block';
+    continueBtn.textContent = state.stepIndex===0 ? 'Start sending' : (state.stepIndex===sim.steps.length-1 ? 'Finish' : 'Continue');
+  } else {
+    step.options.forEach(function(opt,i){
+      var btn=document.createElement('button');
+      btn.className='option-btn'; btn.textContent=opt;
+      btn.onclick=function(){ handleAnswer(i, step, btn, sim); };
+      optionsEl.appendChild(btn);
+    });
+  }
+}
+
+function handleAnswer(i, step, btnEl, sim){
+  if(state.locked) return;
+  if(i===step.correctIndex){
+    state.locked=true; state.correctCount++;
+    btnEl.classList.add('correct');
+    optionsEl.querySelectorAll('button').forEach(function(b){ b.disabled=true; });
+    feedbackEl.textContent = step.explanation;
+    feedbackEl.className = 'feedback feedback-good';
+    if(step.animate) step.animate(svgEl, sim.points);
+    continueBtn.style.display='inline-block';
+    continueBtn.textContent = state.stepIndex===sim.steps.length-1 ? 'Finish' : 'Continue';
+  } else {
+    btnEl.classList.add('wrong');
+    feedbackEl.textContent = 'Not quite, try again.';
+    feedbackEl.className = 'feedback feedback-bad';
+    setTimeout(function(){ btnEl.classList.remove('wrong'); }, 420);
+  }
+}
+
+continueBtn.onclick = function(){
+  var sim = SIM_DATA[state.simIndex];
+  state.stepIndex++; state.locked=false;
+  if(state.stepIndex >= sim.steps.length){ showComplete(sim); }
+  else { renderStep(); }
+};
+
+function showComplete(sim){
+  progressFill.style.width='100%';
+  var qCount = sim.steps.filter(function(s){ return s.type==='question'; }).length;
+  var score = Math.round(100*state.correctCount/qCount);
+  state.scores[sim.id]=score;
+  state.completed[sim.id]=true;
+  simScreen.style.display='none'; completeScreen.style.display='block';
+  completeText.textContent = 'The data successfully reached its destination. You answered '+state.correctCount+' out of '+qCount+' questions correctly on the first attempt. Score: '+score+'/100.';
+}
+
+document.getElementById('backBtn').onclick = function(){
+  simScreen.style.display='none'; completeScreen.style.display='none';
+  menuWrap.style.display='block'; renderMenu();
+};
+document.getElementById('menuBtn').onclick = function(){
+  completeScreen.style.display='none'; menuWrap.style.display='block'; renderMenu();
+};
+document.getElementById('retryBtn').onclick = function(){
+  completeScreen.style.display='none'; startSim(state.simIndex);
+};
+
+document.getElementById('loginBtn').onclick = function(){
+  var n = document.getElementById('nameInput').value.trim();
+  var c = document.getElementById('classInput').value.trim();
+  var err = document.getElementById('loginError');
+  if(!n || !c){
+    err.textContent = 'Please fill in both your full name and your class before starting.';
+    err.className = 'feedback feedback-bad';
+    return;
+  }
+  err.className='feedback';
+  state.studentName = n; state.studentClass = c;
+  loginScreen.style.display='none';
+  menuWrap.style.display='block';
+  renderMenu();
+};
+
+document.getElementById('switchStudentBtn').onclick = function(){
+  if(confirm('Start over for a new student? Current progress will be cleared.')){
+    state.studentName=''; state.studentClass=''; state.scores={}; state.completed={};
+    document.getElementById('nameInput').value=''; document.getElementById('classInput').value='';
+    document.getElementById('submitNote').className='feedback'; document.getElementById('submitNote').textContent='';
+    menuWrap.style.display='none';
+    loginScreen.style.display='flex';
+  }
+};
+
+document.getElementById('submitBtn').onclick = function(){
+  var note = document.getElementById('submitNote');
+  if(!SUBMIT_URL){
+    note.textContent = 'Submission is not configured yet. Please contact your teacher.';
+    note.className = 'feedback feedback-bad';
+    return;
+  }
+  document.getElementById('fName').value = state.studentName;
+  document.getElementById('fClass').value = state.studentClass;
+  document.getElementById('fHub').value = state.scores[1];
+  document.getElementById('fSwitch').value = state.scores[2];
+  document.getElementById('fBridge').value = state.scores[3];
+  document.getElementById('fRouter').value = state.scores[4];
+  document.getElementById('fPacket').value = state.scores[5];
+  document.getElementById('fAverage').value = computeAverage();
+  document.getElementById('fTime').value = new Date().toString();
+  document.getElementById('submitForm').action = SUBMIT_URL;
+  document.getElementById('submitForm').submit();
+  note.textContent = 'Results submitted for '+state.studentName+'. You may now hand over the device to the next student.';
+  note.className = 'feedback feedback-good';
+};
+</script>
+</body>
+</html>
