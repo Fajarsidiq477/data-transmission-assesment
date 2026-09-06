@@ -60,6 +60,7 @@ p{margin:0;}
 .score-row{display:flex; justify-content:space-between; font-size:13.5px; padding:6px 0; border-bottom:1px solid var(--line);}
 .score-row-total{font-weight:600; border-bottom:none; padding-top:10px;}
 .submit-actions{display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap;}
+.thank-you{color:var(--good); font-size:14px; font-weight:500;}
 
 button{font-family:inherit; cursor:pointer;}
 button:disabled{opacity:0.5; cursor:not-allowed;}
@@ -153,11 +154,10 @@ button:focus-visible{outline:2px solid var(--router); outline-offset:2px;}
     <div class="submit-panel">
       <h2>Your results</h2>
       <div id="scoreTable" style="margin-top:10px"></div>
-      <div class="submit-actions">
+      <div class="submit-actions" id="submitActions">
         <button class="btn-primary" id="submitBtn">Submit results</button>
         <span id="submitHint" style="font-size:12.5px; color:var(--ink-muted)"></span>
       </div>
-      <div class="feedback" id="submitNote" style="margin-top:10px"></div>
     </div>
   </div>
 
@@ -657,7 +657,7 @@ var sim5 = {
 var SIM_DATA = [sim1, sim2, sim3, sim4, sim5];
 
 /* ---------- engine ---------- */
-var state = { studentName:'', studentClass:'', simIndex:null, stepIndex:0, locked:false, correctCount:0, completed:{}, scores:{} };
+var state = { studentName:'', studentClass:'', simIndex:null, stepIndex:0, locked:false, correctCount:0, completed:{}, scores:{}, submitted:false };
 var loginScreen = document.getElementById('loginScreen');
 var menuWrap = document.getElementById('menuWrap');
 var menuScreen = document.getElementById('menuScreen');
@@ -689,10 +689,15 @@ function renderScoreTable(){
   }).join('');
   var avgRow = allSimsCompleted() ? '<div class="score-row score-row-total"><span>Average</span><span>'+computeAverage()+'/100</span></div>' : '';
   document.getElementById('scoreTable').innerHTML = rows + avgRow;
-  var btn = document.getElementById('submitBtn');
-  var hint = document.getElementById('submitHint');
-  btn.disabled = !allSimsCompleted();
-  hint.textContent = allSimsCompleted() ? '' : 'Complete all five simulations to unlock submission.';
+
+  var actionsEl = document.getElementById('submitActions');
+  if(state.submitted){
+    actionsEl.innerHTML = '<p class="thank-you">Thank you, '+state.studentName+', for completing all the simulations! Your results have been submitted.</p>';
+  } else {
+    actionsEl.innerHTML = '<button class="btn-primary" id="submitBtn">Submit results</button><span id="submitHint" style="font-size:12.5px; color:var(--ink-muted)"></span>';
+    document.getElementById('submitBtn').onclick = handleSubmitClick;
+    document.getElementById('submitHint').textContent = allSimsCompleted() ? '' : 'You still need to complete all five simulations before submitting.';
+  }
 }
 
 function renderMenu(){
@@ -751,21 +756,23 @@ function renderStep(){
 
 function handleAnswer(i, step, btnEl, sim){
   if(state.locked) return;
-  if(i===step.correctIndex){
-    state.locked=true; state.correctCount++;
+  state.locked = true;
+  var buttons = optionsEl.querySelectorAll('button');
+  buttons.forEach(function(b){ b.disabled = true; });
+  if(i === step.correctIndex){
+    state.correctCount++;
     btnEl.classList.add('correct');
-    optionsEl.querySelectorAll('button').forEach(function(b){ b.disabled=true; });
     feedbackEl.textContent = step.explanation;
     feedbackEl.className = 'feedback feedback-good';
-    if(step.animate) step.animate(svgEl, sim.points);
-    continueBtn.style.display='inline-block';
-    continueBtn.textContent = state.stepIndex===sim.steps.length-1 ? 'Finish' : 'Continue';
   } else {
     btnEl.classList.add('wrong');
-    feedbackEl.textContent = 'Not quite, try again.';
+    buttons[step.correctIndex].classList.add('correct');
+    feedbackEl.textContent = 'That is incorrect. ' + step.explanation;
     feedbackEl.className = 'feedback feedback-bad';
-    setTimeout(function(){ btnEl.classList.remove('wrong'); }, 420);
   }
+  if(step.animate) step.animate(svgEl, sim.points);
+  continueBtn.style.display='inline-block';
+  continueBtn.textContent = state.stepIndex===sim.steps.length-1 ? 'Finish' : 'Continue';
 }
 
 continueBtn.onclick = function(){
@@ -811,19 +818,24 @@ document.getElementById('loginBtn').onclick = function(){
 
 document.getElementById('switchStudentBtn').onclick = function(){
   if(confirm('Start over for a new student? Current progress will be cleared.')){
-    state.studentName=''; state.studentClass=''; state.scores={}; state.completed={};
+    state.studentName=''; state.studentClass=''; state.scores={}; state.completed={}; state.submitted=false;
     document.getElementById('nameInput').value=''; document.getElementById('classInput').value='';
-    document.getElementById('submitNote').className='feedback'; document.getElementById('submitNote').textContent='';
     menuWrap.style.display='none';
     loginScreen.style.display='flex';
   }
 };
 
-document.getElementById('submitBtn').onclick = function(){
-  var note = document.getElementById('submitNote');
+function handleSubmitClick(){
+  if(state.submitted) return;
+  if(!allSimsCompleted()){
+    var missing = SIM_DATA.filter(function(s){ return !state.completed[s.id]; }).map(function(s){ return s.title; });
+    alert('You still need to complete all five simulations before you can submit.\n\nRemaining:\n- ' + missing.join('\n- '));
+    return;
+  }
+  var confirmed = confirm('Submit your results now? Once submitted, you will not be able to submit again.');
+  if(!confirmed) return;
   if(!SUBMIT_URL){
-    note.textContent = 'Submission is not configured yet. Please contact your teacher.';
-    note.className = 'feedback feedback-bad';
+    alert('Submission is not configured yet. Please contact your teacher.');
     return;
   }
   document.getElementById('fName').value = state.studentName;
@@ -837,9 +849,9 @@ document.getElementById('submitBtn').onclick = function(){
   document.getElementById('fTime').value = new Date().toString();
   document.getElementById('submitForm').action = SUBMIT_URL;
   document.getElementById('submitForm').submit();
-  note.textContent = 'Results submitted for '+state.studentName+'. You may now hand over the device to the next student.';
-  note.className = 'feedback feedback-good';
-};
+  state.submitted = true;
+  renderScoreTable();
+}
 </script>
 </body>
 </html>
